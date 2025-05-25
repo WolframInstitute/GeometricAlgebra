@@ -115,6 +115,7 @@ ConvertGeometricAlgebra[
         h = GeometricAlgebra[v], toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
 },
     If[ h == g, Return[Multivector[v["Coordinates"], g]]];
+    If[ h["Dimension"] != g["Dimension"], Return[Multivector[v, g]]];
     If[ v["ComplexDimension"] + 2 v["DualDimension"] != g["ComplexDimension"] + 2 g["DualDimension"],
         Return[$Failed]
     ];
@@ -138,7 +139,7 @@ ConvertGeometricAlgebra[
         fromCanonicConversion
     ];
 
-    Multivector[g["BasisMatrix"] . w["Coordinates"], g]
+    Multivector[g["BasisMatrix"] . w["Coordinates"], g][Map[reduceFunctions]]
 ]
 
 ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=

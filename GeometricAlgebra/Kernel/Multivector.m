@@ -636,7 +636,7 @@ Multivector /: Dot[vs__Multivector] := DotProduct[vs]
 
 WedgeProduct[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
 
-Multivector /: Wedge[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
+Multivector /: Wedge[vs__Multivector] := WedgeProduct[vs]
 
 AntiWedgeProduct[vs__Multivector] := OverBar[Wedge @@ UnderBar /@ {vs}]
 
@@ -651,11 +651,11 @@ ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 AntiDotProduct[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
 
 InnerProduct[v_Multivector, w_Multivector] := With[{g = largestGeometricAlgebra[v, w]},
-    Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g]
+    Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g][Map[reduceFunctions]]
 ]
 
 AntiInnerProduct[v_Multivector, w_Multivector] := With[{g = largestGeometricAlgebra[v, w]},
-    Grade[{Multivector[w, g]["Coordinates"] . g["AntiExomorphismMatrix"] . Multivector[v, g]["Coordinates"]}, -1, g]
+    Grade[{Multivector[w, g]["Coordinates"] . g["AntiExomorphismMatrix"] . Multivector[v, g]["Coordinates"]}, -1, g][Map[reduceFunctions]]
 ]
 
 (* AntiInnerProduct[v_Multivector, w_Multivector] := OverBar[InnerProduct[UnderBar[v], UnderBar[w]]] *)
@@ -712,7 +712,7 @@ v_Multivector["Involute"] = Involute[v]
 
 v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
 
-SuperStar[v_Multivector] ^:= v["Conjugate"]
+(SuperStar | Conjugate)[v_Multivector] ^:= v["Conjugate"]
 
 
 LeftComplement[v_Multivector] := With[{i = v["PseudoscalarIndex"]},
@@ -849,7 +849,7 @@ g_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[g]
 
 
 g_GeometricAlgebra["Nilpotent", n_Integer] := With[{
-    i = Min[Min[g["ComplexSignature"]], Abs[n]]
+    i = Abs[n]
 },
     Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, g]
 ]

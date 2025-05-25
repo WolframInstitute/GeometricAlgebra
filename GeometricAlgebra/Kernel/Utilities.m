@@ -2,6 +2,7 @@ Package["Wolfram`GeometricAlgebra`"]
 
 PackageExport[ExteriorMatrix]
 
+PackageScope[identityMatrix]
 PackageScope[MatrixInverse]
 PackageScope[elementwiseFunctionQ]
 PackageScope[numericFunctionQ]
@@ -41,6 +42,11 @@ hasDefinitionsQ[f_] := GeneralUtilities`HasDefinitionsQ[f]
 permutationSignature[x_List, y_List] := permutationSignature[FindPermutation[x, y]]
 
 permutationSignature[perm_ ? PermutationCyclesQ] := Apply[Times, (-1) ^ (Length /@ First[perm] - 1)]
+
+
+identityMatrix[0] := {{}}
+
+identityMatrix[n_Integer] := IdentityMatrix[n]
 
 
 ExteriorMatrix[{{}}] := {{1}}

@@ -36,8 +36,9 @@ $GeometricAlgebraProperties = {
     "Ordering",
 
     "VectorBasis",
+    "SignatureMetric",
     "Metric",
-    "MatricSignature",
+    "MetricSignature",
     "Indices",
     "DualIndices",
     "OrderedIndices",
@@ -132,7 +133,7 @@ g_GeometricAlgebra["MetricSignature"] :=
         Join[ConstantArray[1, p], ConstantArray[0, r], ConstantArray[-1, q]]
     ]
 
-g_GeometricAlgebra["MetricMatrix"] := Map[Lookup[#, Key[{}], 0] &, g["MultiplicationTable"], {2}]
+g_GeometricAlgebra["SignatureMetric"] := DiagonalMatrix[g["MetricSignature"]]
 
 g_GeometricAlgebra["Indices"] := g["Indices"] = Block[{
     p, q, r
