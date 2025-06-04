@@ -573,9 +573,18 @@ GeometricProduct[v_Multivector, w_Multivector] := With[{
     ][Map[reduceFunctions]]
 ]
 
+GeometricProduct[v_List, w_] := GeometricProduct[#, w] & /@ v
+
+GeometricProduct[v_, w_List] := GeometricProduct[v, #] & /@ w
+
+GeometricProduct[v_Multivector, w : Except[_Multivector]] := GeometricProduct[v, Grade[w, 0, GeometricAlgebra[v]]]
+
+GeometricProduct[v : Except[_Multivector], w_Multivector] := GeometricProduct[Grade[v, 0, GeometricAlgebra[w]], w]
+
 GeometricProduct[x_, y_] := x * y
 
 GeometricProduct[left___, v_Multivector, right___] := Fold[GeometricProduct, {left, v, right}]
+
 
 GeometricProduct[] := Multivector[{1}, {0, 0}]
 
@@ -619,36 +628,38 @@ Multivector /: NonCommutativeMultiply[left___, v_Multivector, right___] := Geome
 
 (* Products and contractions *)
 
-AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
+AntiGeometricProduct[vs__] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
 
 
 gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[v], GradeList[w]]
 
 gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
 
-LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* Reverse, vs]
+gradeFunctionContraction[f_, left___, v_Multivector, right___] := gradeFunctionContraction[f, ##] & @@ (If[MultivectorQ[#], #, Grade[#, 0, GeometricAlgebra[v]]] & /@ {left, v, right})
 
-RightContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract], vs]
+LeftContraction[vs__] := gradeFunctionContraction[Apply[Subtract] @* Reverse, vs]
 
-DotProduct[vs__Multivector] := gradeFunctionContraction[Abs @* Apply[Subtract], vs]
+RightContraction[vs__] := gradeFunctionContraction[Apply[Subtract], vs]
 
-Multivector /: Dot[vs__Multivector] := DotProduct[vs]
+DotProduct[vs__] := gradeFunctionContraction[Abs @* Apply[Subtract], vs]
 
-WedgeProduct[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
+Multivector /: Dot[left___, v_Multivector, right___] := DotProduct[left, v, right]
 
-Multivector /: Wedge[vs__Multivector] := WedgeProduct[vs]
+WedgeProduct[vs__] := gradeFunctionContraction[Apply[Plus], vs]
 
-AntiWedgeProduct[vs__Multivector] := OverBar[Wedge @@ UnderBar /@ {vs}]
+Multivector /: Wedge[left___, v_Multivector, right___] := WedgeProduct[left, v, right]
 
-Multivector /: Vee[vs__Multivector] := AntiWedgeProduct[vs]
+AntiWedgeProduct[vs__] := OverBar[Wedge @@ UnderBar /@ {vs}]
 
-CrossProduct[vs__Multivector] := UnderBar[Wedge[vs]]
+Multivector /: Vee[left___, v_Multivector, right___] := AntiWedgeProduct[left, v, right]
 
-Multivector /: Cross[vs__Multivector] := CrossProduct[vs]
+CrossProduct[vs__] := UnderBar[Wedge[vs]]
 
-ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
+Multivector /: Cross[left___, v_Multivector, right___] := CrossProduct[left, v, right]
 
-AntiDotProduct[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
+ScalarProduct[vs__] := Grade[GeometricProduct[vs], 0]
+
+AntiDotProduct[vs__] := OverBar[Dot @@ UnderBar /@ {vs}]
 
 InnerProduct[v_Multivector, w_Multivector] := With[{g = largestGeometricAlgebra[v, w]},
     Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g][Map[reduceFunctions]]
@@ -820,6 +831,8 @@ Grade[coords_List, n_Integer, args___] := Block[{
 ]
 
 Grade[x_, n_Integer, args___] := Grade[{x}, n, args]
+
+Grade[v_Multivector, grades : {__Integer}] := Total[Grade[v, #] & /@ grades]
 
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["Dimension"], 2]]
 

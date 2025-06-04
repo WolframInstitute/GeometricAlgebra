@@ -151,7 +151,7 @@ VectorDerivative[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"]
 
 
 RiemannMap[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] := With[{
-    omega = ToTetrad /@ SpinConnection[CoordinateDerivative[g, vars]],
+    omega = ToTetrad /@ SpinConnection[g, vars],
     pd = PartialDerivatives[vars],
     e = InverseVierbein[g]
 },

@@ -107,7 +107,7 @@ coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]
 
 coordinateTimes[f_Function, y_] := f[y]
 
-coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[GeometricProduct[x, y]]]
+coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[Evaluate[GeometricProduct[x, y]]]]
 
 coordinateTimes[v_, w_] := GeometricProduct[v, w]
 
