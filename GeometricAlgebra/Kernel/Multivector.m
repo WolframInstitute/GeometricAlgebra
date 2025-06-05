@@ -864,7 +864,7 @@ g_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[g]
 g_GeometricAlgebra["Nilpotent", n_Integer] := With[{
     i = Abs[n]
 },
-    Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, g]
+    ConvertGeometricAlgebra[Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, g["BalancedAlgebra"]], g]
 ]
 
 

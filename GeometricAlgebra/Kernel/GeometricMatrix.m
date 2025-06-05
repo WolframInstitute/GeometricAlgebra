@@ -62,7 +62,7 @@ CanonicalGeometricAlgebra[g_GeometricAlgebra] := Block[{
     n = p + q;
     n1 = Floor[n / 2];
     n2 = Ceiling[n / 2];
-    indexConversion = Association @ CanonicalGeometricIndices[g];
+    indexConversion = CanonicalGeometricIndices[g];
     newIndex = Map[
         With[{c = indexConversion[#][[1]], index = geometricIndexFormat[g, #]},
             indexConversion[#][[2]] -> Switch[c,
@@ -81,27 +81,29 @@ CanonicalGeometricIndices[g_GeometricAlgebra] := Block[{
     n1, n2, p, q, r, n, complexIndices, newIndex
 },
     {p, q, r} = g["Signature"];
-    n = p + q + r;
+    n = p + q;
     n1 = Floor[n / 2];
     n2 = Ceiling[n / 2];
-    If[ p + r > q,
-        complexIndices = Range[n1 + 1, p + r];
-        newIndex = Map[
-            # -> {
-                I ^ Count[#1, _ ? (MemberQ[complexIndices, #] &)],
-                Map[If[MemberQ[complexIndices, #], # - n - 1, #] &, #]
-            } &,
+    If[ p > q,
+        complexIndices = Range[n1 + 1, p];
+        newIndex = AssociationMap[index |-> (
+            {
+                #2 * (I ^ Count[index, _ ? (MemberQ[complexIndices, #] &)]),
+                #1
+            } & @@ orderIndexWithSign[Map[Which[# > p, # - (p - n1), MemberQ[complexIndices, #], # - n - 1, True, #] &, index], n + r])
+            ,
             g["Indices"]
         ],
         complexIndices = Range[-n2 - 1, -q, -1];
-        newIndex = Map[
-            # -> {
-                I ^ Count[#, _ ? (MemberQ[complexIndices, #] &)],
-                Map[If[MemberQ[complexIndices, #], # + n + 1, #] &, #]
-            } &,
+        newIndex = AssociationMap[index |-> (
+            {
+                #2 * (I ^ Count[index, _ ? (MemberQ[complexIndices, #] &)]),
+                #1
+            } & @@ orderIndexWithSign[Map[Which[# > p, # - (p - n1), MemberQ[complexIndices, #], # + n + 1, True, #] &, index], n + r])
+            ,
             g["Indices"]
         ]
-     ];
+    ];
     newIndex
 ]
 
@@ -115,9 +117,8 @@ ConvertGeometricAlgebra[
         h = GeometricAlgebra[v], toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
 },
     If[ h == g, Return[Multivector[v["Coordinates"], g]]];
-    If[ h["Dimension"] != g["Dimension"], Return[Multivector[v, g]]];
     If[ v["ComplexDimension"] + 2 v["DualDimension"] != g["ComplexDimension"] + 2 g["DualDimension"],
-        Return[$Failed]
+        Return[Multivector[v, g]]
     ];
     If[ g["DualDimension"] > v["DualDimension"],
         Return[ConvertGeometricAlgebra[ComplexDualMultivector[v, g["DualDimension"] - v["DualDimension"]], g, opts]]
@@ -128,11 +129,11 @@ ConvertGeometricAlgebra[
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[g];
     canonicCoordinates = Association @ MapThread[Function[{x, y}, y[[2]] -> x y[[1]]],
-        {h["InverseBasisMatrix"] . v["Coordinates"], toCanonicConversion[[All, 2]]}
+        {h["InverseBasisMatrix"] . v["Coordinates"], Values[toCanonicConversion]}
     ];
     i = OptionValue["Pseudoscalar"];
 
-    w = Total @ MapApply[
+    w = Total @ KeyValueMap[
         With[{c = canonicCoordinates[#2[[2]]] Conjugate[#2[[1]]]},
             Multivector[<|#1 -> If[i != I, Re[c] + Im[c] i, c]|>, g]
         ] &,
