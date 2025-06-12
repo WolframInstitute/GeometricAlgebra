@@ -140,7 +140,7 @@ ConvertGeometricAlgebra[
         fromCanonicConversion
     ];
 
-    Multivector[g["BasisMatrix"] . w["Coordinates"], g][Map[reduceFunctions]]
+    Multivector[g["BasisMatrix"] . w["Coordinates"], g][Identity]
 ]
 
 ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=

@@ -4,6 +4,12 @@ PackageImport["Wolfram`GeometricAlgebra`"]
 
 PackageExport[CoordinateFrames]
 PackageExport[TetradFrames]
+PackageExport[Vierbein]
+PackageExport[InverseVierbein]
+PackageExport[ToTetrad]
+PackageExport[ToInverseTetrad]
+
+PackageExport[PartialDerivatives]
 PackageExport[CoordinateDerivative]
 PackageExport[VectorDerivative]
 PackageExport[CovariantDerivative]
@@ -34,7 +40,7 @@ PartialDerivatives[vars : {__Symbol ? AtomQ} : $DefaultVars] := (v |-> D[#, v] &
 
 Vierbein[g_ ? GeometricAlgebraQ] := g["VectorBasis"]
 
-InverseVierbein[g_ ? GeometricAlgebraQ] := With[{eta = g["SignatureMetric"]}, Inverse[eta . Vierbein[g]] . eta]
+InverseVierbein[g_ ? GeometricAlgebraQ] := Inverse[Vierbein[g]]
 
 
 ToTetrad[g_ ? GeometricAlgebraQ] := GeometricAlgebra[g["Signature"]]
@@ -84,7 +90,7 @@ CoordinateFrames[e_ /; SquareMatrixQ[e] && Dimensions[e] == {4, 4}, vectorNames 
             "FormatIndex" -> Function[
                 $DefaultMultivectorFormatFunction[#] /. Append[Subscript -> Superscript] @ repl
             ],
-            "VectorBasis" -> eta . e
+            "VectorBasis" -> eta . Inverse[e]
         ]
     }
 ]
@@ -93,7 +99,7 @@ CoordinateFrames[e_ /; SquareMatrixQ[e] && Dimensions[e] == {4, 4}, vectorNames 
 CoordinateDerivative[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
     pd = PartialDerivatives[vars]
 },
-    pd . g["SignatureMetric"] . g["Basis", 1]
+    Multivector[pd . g["SignatureMetric"] . g["Basis", 1], Right][Identity]
 ]
 
 CoordinateDerivative[vars : {__Symbol ? AtomQ} : $DefaultVars] := CoordinateDerivative[TetradFrames[CanonicalVariableName /@ vars][[2]], vars]
@@ -107,7 +113,7 @@ SpinConnection[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars]
 },
     ConvertGeometricAlgebra[
         1 / 2 Total @ MapThread[
-            GeometricProduct[Wedge[#1, cd], Multivector[#2, g]] &,
+            Wedge[#1, Flatten[GeometricProduct[cd, Multivector[#2, g]]]] &,
             {gmu, #}
         ],
         g
@@ -116,7 +122,7 @@ SpinConnection[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars]
 
 SpinConnectionComponents[omega : {Repeated[_ ? MultivectorQ, {4}]}] := With[{eta = omega[[1]]["SignatureMetric"]},
      eta . # & /@ Transpose[
-       ArrayReshape[Comap[ToInverseTetrad /@ omega, Tuples[{1, -3, -2, -1}, 2]], {4, 4, 4}],
+        ArrayReshape[Comap[ToInverseTetrad /@ omega, Tuples[{1, -3, -2, -1}, 2]], {4, 4, 4}],
         {3, 2, 1}
     ]
 ]
@@ -130,24 +136,13 @@ ChristoffelSymbols[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultV
     Transpose[einv] . Transpose[#[e] & /@ pd, {3, 1, 2}] + einv . Transpose[e . omega]
 ]
 
-(* 
-VectorDerivative[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
-    cd = CoordinateDerivative[g, vars]
-}, {
-    omega = SpinConnection[cd]
-},
-    Function[m, MapThread[m[#1] + 1 / 2 Commutator[#2, m] &, {PartialDerivatives[vars], omega}]]
-] *)
-
 
 VectorDerivative[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
-    cd = CoordinateDerivative[g, vars]
-}, {
-    omega = SpinConnection[cd]
+    cd = CoordinateDerivative[g, vars],
+    omega = SpinConnection[g, vars]
 },
-    cd + 1 / 2 Inner[Dot, Inner[Wedge, Outer[Commutator, omega, g["Basis"]], g["Basis"]], g["Basis", 1]]
+    Multivector[Grade[(w |-> 1 / 2 Commutator[w, #] &) /@ omega, 1, g], Right]
 ]
-
 
 
 RiemannMap[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] := With[{

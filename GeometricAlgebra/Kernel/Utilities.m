@@ -96,18 +96,24 @@ reduceFunctions[expr_] := Activate @ FixedPoint[Function[x, ReplaceRepeated[x, {
     (* HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
     HoldPattern[Function[Function[x_]]] :> With[{e = Simplify @ Inactivate[x, D]}, Function[e] /; True],
     HoldPattern[Plus[xs___, f_Function, ys___]] :> With[{e = Plus @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True],
+    HoldPattern[Times[___, 0, ___]] :> 0,
+    HoldPattern[Times[left___, 1, right___]] :> Times[left, right],
     HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[{xs, ys}, _Function, {0, \[Infinity]}] :> With[{e = Times @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True]
 }], HoldAllComplete], expr]
 
 
-mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"]]
+mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"], v["Orientation"]]
 
 
 coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]]
 
 coordinateTimes[f_Function, y_] := f[y]
 
-coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[Evaluate[GeometricProduct[x, y]]]]
+coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x y]]
+
+coordinateTimes[x_ ? MultivectorQ, y : Except[_Multivector]] := Multivector[coordinateTimes[#, y] & /@ x["Coordinates"], GeometricAlgebra[x], x["Orientation"]]
+
+coordinateTimes[x : Except[_Multivector], y_ ? MultivectorQ] := Multivector[coordinateTimes[x, #] & /@ y["Coordinates"], GeometricAlgebra[y], y["Orientation"]]
 
 coordinateTimes[v_, w_] := GeometricProduct[v, w]
 
