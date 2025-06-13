@@ -29,7 +29,7 @@ $GeometricAlgebraProperties = {
     "NegativeDimension",
     "NonNegativeDimension",
 
-    "Order",
+    "Order", "Size",
     "ComplexOrder",
     "DualOrder",
 
@@ -121,7 +121,7 @@ g_GeometricAlgebra["NonNegativeDimension"] := Total @ g["Signature"][[{1, 3}]]
 
 g_GeometricAlgebra["ComplexDimension"] := Total @ g["ComplexSignature"]
 
-g_GeometricAlgebra["Order"] := 2 ^ g["Dimension"]
+g_GeometricAlgebra["Order" | "Size"] := 2 ^ g["Dimension"]
 
 g_GeometricAlgebra["ComplexOrder"] := 2 ^ g["ComplexDimension"]
 

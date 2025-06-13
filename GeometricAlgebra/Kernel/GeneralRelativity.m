@@ -113,7 +113,7 @@ SpinConnection[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars]
 },
     ConvertGeometricAlgebra[
         1 / 2 Total @ MapThread[
-            Wedge[#1, Flatten[GeometricProduct[cd, Multivector[#2, g]]]] &,
+            Wedge[#1, Multivector[Flatten @ GeometricProduct[cd, Multivector[#2, g]], Left]] &,
             {gmu, #}
         ],
         g
@@ -141,7 +141,7 @@ VectorDerivative[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"]
     cd = CoordinateDerivative[g, vars],
     omega = SpinConnection[g, vars]
 },
-    Multivector[Grade[(w |-> 1 / 2 Commutator[w, #] &) /@ omega, 1, g], Right]
+    cd + Multivector[Grade[(w |-> Switch[w == 0, True, 0, _, 1 / 2 Commutator[w, #] &]) /@ omega, 1, g], Right]
 ]
 
 

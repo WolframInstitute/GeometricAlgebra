@@ -85,35 +85,52 @@ constantFunction[f_Function] := f
 constantFunction[x_] := Function[x]
 
 
-functionBody[Function[body_]] := body
-functionBody[x_] := x
+
+functionBodyTimes[Function[body_]] := Hold[body]
+functionBodyTimes[x_] := Hold[x]
+
+functionBodyPlus[Function[body_]] := Hold[body]
+functionBodyPlus[x_] /; FreeQ[x, _Function] := Hold[x * #]
+functionBodyPlus[x_] := functionBodyPlus[reduceFunctions[x]]
 
 
-reduceFunctions[expr_] := Activate @ FixedPoint[Function[x, ReplaceRepeated[x, {
-    HoldPattern[(f: Function[x_])[y_]] :> With[{e = Inactivate[f[y], D]}, Function[e] /; True],
-    f: HoldPattern[Function[x_]] /; FreeQ[Hold[x], _Slot, {0, \[Infinity]}] :> x,
-    (* f: HoldPattern[Function[{xs__}, x_]] /; FreeQ[x, Alternatives[xs], {0, \[Infinity]}]:> x,*)
-    (* HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
-    HoldPattern[Function[Function[x_]]] :> With[{e = Simplify @ Inactivate[x, D]}, Function[e] /; True],
-    HoldPattern[Plus[xs___, f_Function, ys___]] :> With[{e = Plus @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True],
-    HoldPattern[Times[___, 0, ___]] :> 0,
-    HoldPattern[Times[left___, 1, right___]] :> Times[left, right],
-    HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[{xs, ys}, _Function, {0, \[Infinity]}] :> With[{e = Times @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True]
-}], HoldAllComplete], expr]
+simplifyBody[Function[body_]] := Activate[Function[Evaluate[Simplify @ Inactivate[body, Except[Inactive | Plus | Times | Power]] /. v_Multivector :> v[Map[Activate]]]]]
+simplifyBody[body_] := body
 
 
-mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"], v["Orientation"]]
+reduceFunctions[expr_] := 
+	simplifyBody @ ReplaceRepeated[expr, {
+		Function[0] :> 0,
+		Function[x_] /; FreeQ[Unevaluated[x], _Slot] :> x,
+		Function[Function[x_]] :> Function[x],
+		HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[Unevaluated[{xs, ys}], _Function] :>
+			RuleCondition[Function[Null, Function @@ Hold[Times[##]], HoldAll] @@ Flatten[Hold @@ functionBodyTimes /@ {xs, f, ys}]],
+		HoldPattern[Plus[xs___, f_Function, ys___]] :> RuleCondition[Function[Null, Function @@ Hold[Plus[##]], HoldAll] @@ Flatten[Hold @@ functionBodyPlus /@ {xs, f, ys}]],
+		HoldPattern[Times[___, 0, ___]] :> 0,
+		HoldPattern[Times[x_]] :> x,
+		HoldPattern[Times[left___, 1, right___]] :> Times[left, right],
+		v_Multivector :> RuleCondition[If[v["ScalarQ"], v["Scalar"], v[Identity]]]
+	}]
 
 
-coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]]
+mapCoordinates[f_, v_Multivector] := Multivector[SparseArray[MapAt[reduceFunctions, ArrayRules[f[v["Coordinates"]]], {All, 2}], v["Order"]], v["GeometricAlgebra"], v["Polarity"]]
+
+
+coordinateTimes[x_ ? MultivectorQ, y : Except[_Multivector]] := If[x["ScalarQ"],
+	x["Scalar"] * y,
+	Multivector[SparseArray[MapAt[coordinateTimes[#, y] &, ArrayRules[x["Coordinates"]], {All, 2}], x["Size"]], GeometricAlgebra[x], x["Polarity"]][Identity]
+]
+
+coordinateTimes[f_Function, g_Function] := Composition[f, g]
 
 coordinateTimes[f_Function, y_] := f[y]
 
+coordinateTimes[x : Except[_Multivector], y_ ? MultivectorQ] := If[y["ScalarQ"],
+	x * y["Scalar"],
+	Multivector[SparseArray[MapAt[coordinateTimes[x, #] &, ArrayRules[y["Coordinates"]], {All, 2}], y["Size"]], GeometricAlgebra[y], y["Polarity"]][Identity]
+]
+
 coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x y]]
-
-coordinateTimes[x_ ? MultivectorQ, y : Except[_Multivector]] := Multivector[coordinateTimes[#, y] & /@ x["Coordinates"], GeometricAlgebra[x], x["Orientation"]]
-
-coordinateTimes[x : Except[_Multivector], y_ ? MultivectorQ] := Multivector[coordinateTimes[x, #] & /@ y["Coordinates"], GeometricAlgebra[y], y["Orientation"]]
 
 coordinateTimes[v_, w_] := GeometricProduct[v, w]
 

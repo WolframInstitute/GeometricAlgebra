@@ -116,7 +116,7 @@ ConvertGeometricAlgebra[
     opts: OptionsPattern[ConvertGeometricAlgebra]] := Block[{
         h = GeometricAlgebra[v], toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
 },
-    If[ h == g, Return[Multivector[v["Coordinates"], g]]];
+    If[ h == g, Return[Multivector[v["Coordinates"], g, v["Polarity"]]]];
     If[ v["ComplexDimension"] + 2 v["DualDimension"] != g["ComplexDimension"] + 2 g["DualDimension"],
         Return[Multivector[v, g]]
     ];
@@ -140,7 +140,7 @@ ConvertGeometricAlgebra[
         fromCanonicConversion
     ];
 
-    Multivector[g["BasisMatrix"] . w["Coordinates"], g][Identity]
+    Multivector[g["BasisMatrix"] . w["Coordinates"], g, v["Polarity"]][Identity]
 ]
 
 ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=
@@ -429,7 +429,8 @@ DualComplexMultivector[v_Multivector] := Block[{
             Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], With[{l = Replace[k, i_ :> If[i > p, p - q - i, i], 1]}, <|k -> x, l -> x|> / 2], k -> x]],
             v["Association"]
         ],
-        G
+        G,
+        v["Polarity"]
     ]
 ]
 
@@ -442,7 +443,8 @@ ComplexDualMultivector[v_Multivector, r_Integer : 1] := Block[{
     G = GeometricAlgebra[p - r, q - r, r];
     Multivector[
         Merge[KeyValueMap[Replace[#1, i_ :> If[i < - q + r, p - q - i, i], 1] -> #2 &, v["Association"]], Total],
-        G
+        G,
+        v["Polarity"]
     ]
 ]
 

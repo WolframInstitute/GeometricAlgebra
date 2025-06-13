@@ -217,11 +217,11 @@ PackageScope["switchDualSide"]
 
 Options[Multivector] = {
     "GeometricAlgebra" -> GeometricAlgebra[3],
-    "Orientation" -> Left
+    "Polarity" -> Left
 }
 
 
-multivectorQ[HoldPattern[Multivector[coords_ /; MatchQ[coords, _SparseArray ? SparseArrayQ] || VectorQ[Unevaluated[coords]], g_ ? GeometricAlgebraQ, orientation : Left | Right : Left]]] := Length[coords] == g["Order"]
+multivectorQ[HoldPattern[Multivector[coords_ /; MatchQ[coords, _SparseArray ? SparseArrayQ] || VectorQ[Unevaluated[coords]], g_ ? GeometricAlgebraQ, polarity : Left | Right : Left]]] := Length[coords] == g["Order"]
 
 multivectorQ[___] := False
 
@@ -283,7 +283,7 @@ Multivector[x : Except[_ ? VectorQ | _Multivector], g_ ? GeometricAlgebraQ, opts
 
 Multivector[x_, opts : OptionsPattern[]] := Multivector[x, OptionValue["GeometricAlgebra"]]
 
-Multivector[x_, args : Except[_GeometricAlgebra | Left | Right] .., orientation : Left | Right : Left] := Multivector[x, GeometricAlgebra[args], orientation]
+Multivector[x_, args : Except[_GeometricAlgebra | Left | Right] .., polarity : Left | Right : Left] := Multivector[x, GeometricAlgebra[args], polarity]
 
 Multivector[x, p_Integer, q_Integer: 0, r_Integer: 0, opts___] := Multivector[x, GeometricAlgebra[p, q, r], opts]
 
@@ -335,7 +335,9 @@ Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
 
 GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
 
-(HoldPattern[Multivector[_, _, orientation : Left | Right : Left, ___]] ? MultivectorQ)["Orientation"] := orientation
+(HoldPattern[Multivector[_, _, polarity : Left | Right : Left, ___]] ? MultivectorQ)["Polarity"] := polarity
+
+v_Multivector["Basis", args___] := Multivector[#, v["Polarity"]] & /@ GeometricAlgebra[v]["Basis", args]
 
 (v_Multivector ? MultivectorQ)[prop_String /; MemberQ[$GeometricAlgebraProperties, prop], args___] := GeometricAlgebra[v][prop, args]
 
@@ -363,17 +365,33 @@ v_Multivector["CoordinateDimension"] := Max[DualDimension /@ v["Coordinates"]]
 v_Multivector["Association"] := Association @ Map[Apply[Function[{x, y}, v["Indices"][[First[x]]] -> y, HoldAllComplete]], Most @ ArrayRules[v["Coordinates"]]]
 
 
-v_Multivector["Span"] := MapThread[GeometricProduct, {v["Coordinates"], v["Basis"]}]
+v_Multivector["Span"] := If[v["Polarity"] === Left, 
+    MapThread[GeometricProduct, {v["Coordinates"], v["Basis"]}],
+    MapThread[Multivector[GeometricProduct[##], Right] &, {Multivector[#, Left] & /@ v["Basis"], v["Coordinates"]}]
+]
 
-v_Multivector["Span", n_Integer] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], v["Basis", n]}]
+v_Multivector["Span", n_Integer] := If[v["Polarity"] === Left,
+    MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], v["Basis", n]}],
+    MapThread[Multivector[GeometricProduct[##], Right] &, {Multivector[#, Left] & /@ v["Basis", n], v["Coordinates"][[indexSpan[v, n]]]}]
+]
 
 v_Multivector["Span", {ns__Integer}] := Catenate[v["Span", #] & /@ {ns}]
 
 
-v_Multivector["Flatten", n_Integer : 1] :=
-    Nest[If[v["Orientation"] === Left, Inner[GeometricProduct, #["Coordinates"], #["Basis"]] &, Inner[GeometricProduct, #["Basis"], #["Coordinates"]] &], v, n]
+v_Multivector["Flatten", n : _Integer | Infinity : Infinity] :=
+    If[ AnyTrue[v["Coordinates"], MatchQ[_Multivector]],
+        FixedPoint[
+            If[ v["Polarity"] === Left,
+                Inner[GeometricProduct, #["Coordinates"], #["Basis"]] &,
+                With[{w = Multivector[#, Left]}, Multivector[Inner[GeometricProduct, w["Basis"], w["Coordinates"]], Right]] &
+            ],
+            v,
+            n
+        ],
+        v
+    ]
 
-Multivector /: Flatten[v_Multivector, n_Integer : 1] := v["Flatten", n]
+Multivector /: Flatten[v_Multivector, n : _Integer | Infinity : Infinity, ___] := v["Flatten", n]
 
 v_Multivector["Real"] := v[Re] + GeometricProduct[GeometricAlgebra[v]["Pseudoscalar"], v[Im]]
 
@@ -412,7 +430,7 @@ Multivector[v_Multivector, g_GeometricAlgebra] /; GeometricAlgebra[v] === g := v
 
 Multivector[v_Multivector, g_GeometricAlgebra] := Multivector[v["Association"], g]
 
-Multivector[v_Multivector, orientation : Left | Right] := Multivector[v["Association"], v["GeometricAlgebra"], orientation]
+Multivector[v_Multivector, polarity : Left | Right] := Multivector[v["Association"], v["GeometricAlgebra"], polarity]
 
 
 (* Addition *)
@@ -424,17 +442,17 @@ zeroMultivector[v_Multivector] := zeroMultivector[GeometricAlgebra[v]]
 
 Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Block[{
     g = largestGeometricAlgebra[vs],
-    ws
+    ws, polarity = If[MemberQ[Through[{vs}["Polarity"]], Right], Right, Left]
 },
     ws = ConvertGeometricAlgebra[#, g] & /@ {vs};
     Multivector[
         Total[#["Coordinates"] & /@ ws],
         g,
-        First[{vs}]["Orientation"]
+        polarity
     ][Identity]
 ]
 
-Multivector /: Plus[x : Except[_Multivector], v_Multivector]:= x * identityMultivector[v] + v
+Multivector /: Plus[x : Except[_Multivector], v_Multivector]:= v[MapAt[# + x &, {1}]]
 
 
 g_GeometricAlgebra["Zero"] := zeroMultivector[g]
@@ -447,10 +465,12 @@ identityMultivector[g_GeometricAlgebra] := Multivector[{1}, g]
 identityMultivector[v_Multivector] := identityMultivector[GeometricAlgebra[v]]
 
 
-Multivector /: Times[x : Except[_Multivector], v_Multivector] := mapCoordinates[x * # &, v]
+Multivector /: Times[x : Except[_Multivector] .., v_Multivector] := mapCoordinates[x * # &, v]
 
 
 v_Multivector["Scalar"] := v["Coordinate", 1]
+
+v_Multivector["ScalarQ"] := MatchQ[ArrayRules[v["Coordinates"]], {{1} -> _, Verbatim[{_}] -> _}] 
 
 
 v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v @@ v["PseudoscalarIndex"], 0]
@@ -575,9 +595,9 @@ GeometricProduct[v_Multivector, w_Multivector] := Block[{
     x = ConvertGeometricAlgebra[v, g];
     y = ConvertGeometricAlgebra[w, g];
     m = Flatten[g["MetricMultiplicationTensor"], 1];
-    Switch[{v["Orientation"], w["Orientation"]},
-        {Left, Left},
-            Multivector[Transpose[m] . Flatten[Outer[coordinateTimes, x["Coordinates"], y["Coordinates"], 1], 1], g],
+    Switch[{v["Polarity"], w["Polarity"]},
+        {Left, _},
+            Multivector[Transpose[m] . Flatten[Outer[coordinateTimes, x["Coordinates"], y["Coordinates"], 1], 1], g, w["Polarity"]],
         _,
             Multivector[coordinateTimes[#, y] & /@ x["Coordinates"], g, Right]
     ][Identity]
@@ -645,7 +665,7 @@ AntiGeometricProduct[vs__] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
 
 gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[v], GradeList[w]]
 
-gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
+gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Multivector[Grade[Flatten[#1], f[#2 - 1]], #1["Polarity"]] &, gradeProduct[##], {2}], 2] &, {vs}]
 
 gradeFunctionContraction[f_, left___, v_Multivector, right___] := gradeFunctionContraction[f, ##] & @@ (If[MultivectorQ[#], #, Grade[#, 0, GeometricAlgebra[v]]] & /@ {left, v, right})
 
@@ -819,9 +839,9 @@ Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = D
 Multivector /: Power[v_Multivector, x_] := MultivectorPower[v, x]
 
 
-(* D *)
+(* Derivative *)
 
-Multivector /: D[v_Multivector, x_] := v[Map[D[#, x] &]]
+Multivector /: D[v_Multivector, x_] := v[Map[If[MatchQ[#, _Function], Replace[#, Function[body_] :> Function[D[body, x]]], D[#, x]] &]]
 
 
 (* Grade *)
@@ -1020,7 +1040,7 @@ holdSparseArray[HoldPattern[SparseArray[{xs__}, opts___]]] := SparseArray[List @
 
 Multivector /: MakeBoxes[v : Multivector[coords_, __] /; MultivectorQ[Unevaluated[v]], form_] := Block[{
     g = v["GeometricAlgebra"],
-    orientation = v["Orientation"],
+    polarity = v["Polarity"],
     holdCoords,
     rules,
     nonZeroPositions,
@@ -1063,7 +1083,7 @@ Multivector /: MakeBoxes[v : Multivector[coords_, __] /; MultivectorQ[Unevaluate
     display = RowBox @ If[ n > 0,
         Riffle[
             MapThread[
-                RowBox[If[orientation === Right, Reverse, Identity] @ {
+                RowBox[If[polarity === Right, Reverse, Identity] @ {
                     #1,
                     StyleBox[ToBoxes[geometricIndexFormat[g, #2], form], "ShowStringCharacters" -> False]
                 }] &,
@@ -1089,7 +1109,7 @@ Multivector /: MakeBoxes[v : Multivector[coords_, __] /; MultivectorQ[Unevaluate
         "Multivector",
         DisplayFunction -> (Evaluate @ display &),
         InterpretationFunction -> (Evaluate @ interpret &),
-        Tooltip -> RowBox[{"Multivector", " ", gBox}],
+        Tooltip -> RowBox[{"Multivector", " ", gBox, If[polarity === Right, " (Right)", " (Left)"]}],
         Editable -> True
     ]
 ]
