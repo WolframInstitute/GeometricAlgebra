@@ -11,8 +11,9 @@ PackageExport[ToInverseTetrad]
 
 PackageExport[PartialDerivatives]
 PackageExport[CoordinateDerivative]
-PackageExport[VectorDerivative]
+PackageExport[VectorDerivatives]
 PackageExport[CovariantDerivative]
+PackageExport[DiracOperator]
 PackageExport[SpinConnection]
 PackageExport[SpinConnectionComponents]
 PackageExport[ChristoffelSymbols]
@@ -120,12 +121,11 @@ SpinConnection[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars]
     ] & /@ g["Metric"] + (Inner[Wedge, g["Basis", 1], ToInverseTetrad[g]["Basis", 1] . #[e]] & /@ pd)
 ]
 
-SpinConnectionComponents[omega : {Repeated[_ ? MultivectorQ, {4}]}] := With[{eta = omega[[1]]["SignatureMetric"]},
-     eta . # & /@ Transpose[
+SpinConnectionComponents[omega : {Repeated[_ ? MultivectorQ, {4}]}] :=
+    Transpose[
         ArrayReshape[Comap[ToInverseTetrad /@ omega, Tuples[{1, -3, -2, -1}, 2]], {4, 4, 4}],
-        {3, 2, 1}
+        {3, 1, 2}
     ]
-]
 
 ChristoffelSymbols[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultVars] := With[{
     omega = SpinConnectionComponents[SpinConnection[g, vars]],
@@ -136,9 +136,16 @@ ChristoffelSymbols[g_ ? GeometricAlgebraQ, vars : {__Symbol ? AtomQ} : $DefaultV
     Transpose[einv] . Transpose[#[e] & /@ pd, {3, 1, 2}] + einv . Transpose[e . omega]
 ]
 
+VectorDerivatives[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
+    pd = PartialDerivatives[vars],
+    omega = SpinConnection[g, vars]
+},
+    MapThread[{d, w} |-> Multivector[d + Switch[w == 0, True, 0, _, 1 / 2 Commutator[w, #] &], g, Right][Identity], {pd, omega}]
+]
 
-VectorDerivative[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
-    cd = CoordinateDerivative[g, vars],
+
+DiracOperator[g_ ? GeometricAlgebraQ, vars_ : $DefaultVars] /; g["Dimension"] == Length[vars] := With[{
+    cd = ConvertGeometricAlgebra[CoordinateDerivative[ToInverseTetrad[g], vars], g],
     omega = SpinConnection[g, vars]
 },
     cd + Multivector[Grade[(w |-> Switch[w == 0, True, 0, _, 1 / 2 Commutator[w, #] &]) /@ omega, 1, g], Right]

@@ -113,26 +113,37 @@ reduceFunctions[expr_] :=
 	}]
 
 
-mapCoordinates[f_, v_Multivector] := Multivector[SparseArray[MapAt[reduceFunctions, ArrayRules[f[v["Coordinates"]]], {All, 2}], v["Order"]], v["GeometricAlgebra"], v["Polarity"]]
+mapCoordinates[f_, v_Multivector] := Enclose @ Multivector[SparseArray[MapAt[reduceFunctions, ArrayRules[ConfirmBy[f[v["Coordinates"]], VectorQ]], {All, 2}], v["Order"]], v["GeometricAlgebra"], v["Polarity"]]
 
+
+coordinateTimes[0, _] := 0
+
+coordinateTimes[_, 0] := 0
+
+coordinateTimes[x_ ? MultivectorQ, f_Function] := If[x["ScalarQ"], coordinateTimes[x["Scalar"], f], GeometricProduct[x, f[#]] &]
 
 coordinateTimes[x_ ? MultivectorQ, y : Except[_Multivector]] := If[x["ScalarQ"],
-	x["Scalar"] * y,
-	Multivector[SparseArray[MapAt[coordinateTimes[#, y] &, ArrayRules[x["Coordinates"]], {All, 2}], x["Size"]], GeometricAlgebra[x], x["Polarity"]][Identity]
+	coordinateTimes[x["Scalar"], y],
+	If[	y["Polarity"] === Right,
+		Multivector[SparseArray[MapAt[coordinateTimes[#, y] &, ArrayRules[x["Coordinates"]], {All, 2}], x["Size"]], GeometricAlgebra[x], Right][Identity],
+		Multivector[GeometricProduct[x, y, #] &, GeometricAlgebra[y], Right]
+	]
 ]
 
-coordinateTimes[f_Function, g_Function] := Composition[f, g]
+coordinateTimes[f_Function, x_ ? MultivectorQ] := If[x["ScalarQ"], coordinateTimes[f, x["Scalar"]], If[x["Polarity"] === Left, f[x], f @ GeometricProduct[x, #] &]]
+
+coordinateTimes[x : Except[_Multivector], y_ ? MultivectorQ] := If[y["ScalarQ"],
+	coordinateTimes[x, y["Scalar"]],
+	Multivector[SparseArray[MapAt[coordinateTimes[x, #] &, ArrayRules[y["Coordinates"]], {All, 2}], y["Size"]], GeometricAlgebra[y]][Identity]
+]
+
+coordinateTimes[f_Function, Function[g_]] := Function[f[g]]
 
 coordinateTimes[f_Function, y_] := f[y]
 
-coordinateTimes[x : Except[_Multivector], y_ ? MultivectorQ] := If[y["ScalarQ"],
-	x * y["Scalar"],
-	Multivector[SparseArray[MapAt[coordinateTimes[x, #] &, ArrayRules[y["Coordinates"]], {All, 2}], y["Size"]], GeometricAlgebra[y], y["Polarity"]][Identity]
-]
+coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x * y]]
 
-coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x y]]
-
-coordinateTimes[v_, w_] := GeometricProduct[v, w]
+coordinateTimes[v_, w_] := v * w
 
 
 solveCoordinates[f_Function, A_GeometricAlgebra] := Module[{w, sol},
