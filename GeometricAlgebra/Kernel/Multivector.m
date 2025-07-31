@@ -307,6 +307,8 @@ NumberMultivector[x_] := NumberMultivector[x, GeometricAlgebra[0, 1]]
 MultivectorNumber[v_Multivector, g_GeometricAlgebra] :=
     Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, g["ComplexOrder"]], g]
 
+MultivectorNumber[x_, g_GeometricAlgebra] := Multivector[SparseArray[{1 -> Re[x], -1 -> Im[x]}, g["ComplexOrder"]], g]
+
 MultivectorNumber[v_Multivector] := MultivectorNumber[v, If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
 
 MultivectorNumber[x_, args__] := MultivectorNumber[x, GeometricAlgebra[args]]

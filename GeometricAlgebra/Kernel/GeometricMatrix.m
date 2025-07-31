@@ -481,7 +481,7 @@ multivectorBasisMatrix[arr_MultivectorArray] := multivectorBasisMatrix[arr] = Bl
     sa = Array[s[##] &, {m, m}];
 
 
-    Coefficient[#["Scalar"], Flatten @ sa] & /@
+    Coefficient[If[MultivectorQ[#], #["Scalar"], #], Flatten @ sa] & /@
         MatrixMultivector[MultivectorArray[sa], Method -> "Basis", "Basis" -> arr[CanonicalMultivector]]["ComplexCoordinates"]
 ]
 
