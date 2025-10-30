@@ -108,8 +108,7 @@ reduceFunctions[expr_] :=
 		HoldPattern[Plus[xs___, f_Function, ys___]] :> RuleCondition[Function[Null, Function @@ Hold[Plus[##]], HoldAll] @@ Flatten[Hold @@ functionBodyPlus /@ {xs, f, ys}]],
 		HoldPattern[Times[___, 0, ___]] :> 0,
 		HoldPattern[Times[x_]] :> x,
-		HoldPattern[Times[left___, 1, right___]] :> Times[left, right],
-		v_Multivector :> RuleCondition[If[v["ScalarQ"], v["Scalar"], v[Identity]]]
+		HoldPattern[Times[left___, 1, right___]] :> Times[left, right]
 	}]
 
 

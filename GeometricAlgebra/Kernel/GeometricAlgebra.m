@@ -59,6 +59,7 @@ $GeometricAlgebraProperties = {
 
     "BalancedAlgebra",
     "ComplexAlgebra",
+    "NumberAlgebra",
 
     "Zero",
     "Identity",
@@ -176,6 +177,8 @@ g_GeometricAlgebra["ComplexAlgebra"] := Block[{p, q, r},
         g
     ]
 ]
+
+g_GeometricAlgebra["NumberAlgebra"] := If[g["PseudoscalarSquare"] == 1, GeometricAlgebra[1], GeometricAlgebra[0, 1]]
 
 
 middleIndex[g_GeometricAlgebra] := Module[{p, q},
