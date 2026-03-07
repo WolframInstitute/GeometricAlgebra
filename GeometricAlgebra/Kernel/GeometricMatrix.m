@@ -19,6 +19,8 @@ PackageExport["ComplexDualMultivector"]
 
 PackageScope["nilpotentBasis"]
 PackageScope["nilpotentMatrix"]
+PackageScope["nilpotentMatrixDirect"]
+PackageScope["nilpotentGeneratorMatrix"]
 PackageScope["multivectorBasisMatrix"]
 
 
@@ -487,3 +489,29 @@ multivectorBasisMatrix[arr_MultivectorArray] := multivectorBasisMatrix[arr] = Bl
 
 
 nilpotentMatrix[n_Integer] := nilpotentMatrix[n] = multivectorBasisMatrix[nilpotentBasis[n]]
+
+
+(* Direct closed-form representation via Kronecker products.
+   Produces a DIFFERENT (but valid) isomorphism Cl(n,n) -> Mat(2^n, R) from nilpotentMatrix.
+   For Cl(n,n) with generators e_k (e_k^2=+1) and f_k (f_k^2=-1):
+     rho(e_k) = I^{n-k} x J x Z^{k-1},   J = {{0,1},{1,0}}
+     rho(f_k) = I^{n-k} x S x Z^{k-1},   S = {{0,-1},{1,0}}
+   For blades, rho extends multiplicatively: rho(g1 g2 ... gm) = rho(g1).rho(g2)...rho(gm) *)
+nilpotentGeneratorMatrix[n_Integer, k_Integer] := Fold[KroneckerProduct, Join[
+    ConstantArray[{{1, 0}, {0, 1}}, n - Abs[k]],
+    {If[k > 0, {{0, 1}, {1, 0}}, {{0, -1}, {1, 0}}]},
+    ConstantArray[{{1, 0}, {0, -1}}, Abs[k] - 1]
+]]
+
+nilpotentMatrixDirect[0] = {{1}};
+
+nilpotentMatrixDirect[n_Integer] := nilpotentMatrixDirect[n] = Transpose[
+    Map[
+        Flatten[If[# === {}, IdentityMatrix[2 ^ n], Dot @@ Map[nilpotentGeneratorMatrix[n, #] &, #]]] &,
+        GeometricAlgebra[n, n]["Indices"]
+    ]
+]
+
+
+
+
